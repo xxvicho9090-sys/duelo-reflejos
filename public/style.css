@@ -1,0 +1,95 @@
+:root {
+  --bg: #0f1226;
+  --card: #1a1f3d;
+  --line: #2b3260;
+  --text: #f1f3ff;
+  --muted: #9aa3d6;
+  --accent: #ffd23f;
+  --good: #2ee59d;
+  --bad: #ff5470;
+  --a: #4da3ff;
+  --b: #ff7ad9;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
+body { user-select: none; -webkit-user-select: none; touch-action: manipulation; overflow: hidden; }
+#app { height: 100dvh; position: relative; }
+.screen { display: none; position: absolute; inset: 0; padding: calc(24px + var(--safe-t)) 20px calc(24px + var(--safe-b));
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px; overflow-y: auto; }
+.screen.active { display: flex; }
+#game.screen { padding: 0; justify-content: flex-start; align-items: stretch; gap: 0; overflow: hidden; }
+h1 { margin: 0; font-size: 2rem; text-align: center; }
+.logo { font-size: 4rem; filter: drop-shadow(0 0 20px #ffd23f88); }
+.sub { margin: 0; color: var(--muted); text-align: center; }
+.err { margin: 0; min-height: 1.3em; color: var(--bad); text-align: center; }
+.hidden { display: none !important; }
+
+.field { display: flex; flex-direction: column; gap: 6px; width: min(100%, 340px); color: var(--muted); font-size: .9rem; }
+input { font: inherit; color: var(--text); background: var(--card); border: 2px solid var(--line); border-radius: 14px;
+  padding: 14px; width: 100%; user-select: text; -webkit-user-select: text; }
+input:focus { outline: none; border-color: var(--accent); }
+#code { text-align: center; letter-spacing: .3em; text-transform: uppercase; font-weight: 700; }
+.row { display: flex; gap: 10px; width: min(100%, 340px); }
+.row .btn { width: auto; flex: 0 0 auto; }
+.or { color: var(--muted); font-size: .85rem; }
+
+.btn { font: inherit; font-weight: 700; color: var(--text); background: var(--card); border: 2px solid var(--line);
+  border-radius: 14px; padding: 14px 18px; width: min(100%, 340px); min-height: 52px; cursor: pointer; }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--accent); color: #1b1b2f; border-color: var(--accent); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn:disabled { opacity: .45; }
+
+.roomcode { font-size: 3.4rem; font-weight: 800; letter-spacing: .25em; padding-left: .25em; color: var(--accent); }
+.plist { list-style: none; padding: 0; margin: 6px 0; width: min(100%, 340px); display: flex; flex-direction: column; gap: 8px; }
+.plist li { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  display: flex; justify-content: space-between; align-items: center; }
+.plist .st { font-size: .85rem; color: var(--muted); }
+.plist .st.ok { color: var(--good); }
+
+.net { position: fixed; top: 0; left: 0; right: 0; z-index: 50; text-align: center; padding: calc(6px + var(--safe-t)) 10px 6px;
+  background: var(--bad); color: #fff; font-weight: 700; font-size: .9rem; }
+
+/* juego */
+.hud { display: flex; align-items: center; justify-content: space-between; padding: calc(8px + var(--safe-t)) 14px 8px;
+  background: var(--card); border-bottom: 2px solid var(--line); flex: 0 0 auto; }
+.hud-p { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); min-width: 90px; }
+.hud-p.right { text-align: right; align-items: flex-end; }
+.hud-p b { font-size: 1.6rem; color: var(--text); line-height: 1; }
+#hudScoreA { color: var(--a); } #hudScoreB { color: var(--b); }
+.hud-mid { font-weight: 700; }
+.stage { position: relative; flex: 1 1 auto; width: 100%; overflow: hidden; touch-action: none;
+  display: flex; align-items: center; justify-content: center; text-align: center; padding-bottom: var(--safe-b); }
+.stage.red { background: #8b1e3f; } .stage.green { background: #138a5a; }
+.big { font-size: clamp(2rem, 9vw, 3.4rem); font-weight: 800; padding: 0 16px; }
+.small { font-size: 1.1rem; color: var(--muted); display: block; margin-top: 10px; font-weight: 500; }
+.timebar { position: absolute; top: 0; left: 0; height: 6px; background: var(--accent); width: 100%; transform-origin: left; }
+.counter { position: absolute; top: 14px; right: 16px; font-weight: 800; font-size: 1.6rem; }
+
+.target { position: absolute; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, var(--accent) 35%, #ff6b35 100%); box-shadow: 0 0 24px #ffd23faa; border: 0;
+  animation: pop .12s ease-out; }
+@keyframes pop { from { transform: scale(.3); } to { transform: scale(1); } }
+.tapbtn { width: min(70vw, 280px); aspect-ratio: 1; border-radius: 50%; border: 0; font: inherit; font-size: 2rem; font-weight: 800;
+  color: #1b1b2f; background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 40%, #ff8c42); box-shadow: 0 10px 0 #b8870b, 0 0 40px #ffd23f66; }
+.tapbtn:active { transform: translateY(8px); box-shadow: 0 2px 0 #b8870b; }
+.pads { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; width: min(88vw, 360px); aspect-ratio: 1; }
+.pad { border: 0; border-radius: 22px; opacity: .45; transition: opacity .08s, transform .08s; }
+.pad.on { opacity: 1; transform: scale(1.04); box-shadow: 0 0 30px currentColor; }
+.pad[data-i="0"] { background: #ff5470; color: #ff5470; } .pad[data-i="1"] { background: #4da3ff; color: #4da3ff; }
+.pad[data-i="2"] { background: #2ee59d; color: #2ee59d; } .pad[data-i="3"] { background: #ffd23f; color: #ffd23f; }
+
+.overlay { position: absolute; inset: 0; background: #0f1226ee; z-index: 10; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+.overlay h2 { margin: 0; font-size: 2rem; }
+.overlay .num { font-size: 6rem; font-weight: 800; color: var(--accent); }
+.vs { display: flex; gap: 14px; width: min(100%, 360px); }
+.vs > div { flex: 1; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 12px 8px; }
+.vs .win { border-color: var(--good); }
+.vs small { display: block; color: var(--muted); }
+.vs b { font-size: 1.2rem; }
+.verdict { font-size: 1.8rem; font-weight: 800; }
+.verdict.win { color: var(--good); } .verdict.lose { color: var(--bad); }

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: duelo-reflejos
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: true

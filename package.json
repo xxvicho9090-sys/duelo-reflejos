@@ -1,0 +1,14 @@
+{
+  "name": "duelo-reflejos",
+  "version": "1.0.0",
+  "description": "Duelo de reflejos online para dos jugadores (PWA)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tools/test.js",
+    "icons": "node tools/make-icons.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" },
+  "license": "MIT"
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1226">
+<meta name="description" content="Duelo de reflejos online para dos jugadores">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<title>Duelo de Reflejos</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="net" class="net hidden" role="status">Reconectando…</div>
+
+<main id="app">
+  <!-- INICIO -->
+  <section id="home" class="screen active">
+    <div class="logo">⚡</div>
+    <h1>Duelo de Reflejos</h1>
+    <p class="sub">Dos jugadores, 5 rondas, un ganador.</p>
+    <label class="field">Tu nombre
+      <input id="name" maxlength="14" autocomplete="nickname" placeholder="Ej: Vicho">
+    </label>
+    <button id="btnCreate" class="btn primary">Crear sala</button>
+    <div class="or">o entra a una sala</div>
+    <div class="row">
+      <input id="code" maxlength="4" inputmode="text" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO" aria-label="Código de sala">
+      <button id="btnJoin" class="btn">Unirme</button>
+    </div>
+    <p id="homeErr" class="err" role="alert"></p>
+    <button id="btnInstall" class="btn ghost hidden">📲 Instalar en el celular</button>
+  </section>
+
+  <!-- SALA -->
+  <section id="lobby" class="screen">
+    <p class="sub">Código de sala</p>
+    <div id="roomCode" class="roomcode">----</div>
+    <button id="btnShare" class="btn">Compartir invitación</button>
+    <ul id="plist" class="plist"></ul>
+    <p id="lobbyMsg" class="sub">Esperando al otro jugador…</p>
+    <button id="btnReady" class="btn primary" disabled>¡Estoy listo!</button>
+    <button id="btnLeave" class="btn ghost">Salir</button>
+  </section>
+
+  <!-- JUEGO -->
+  <section id="game" class="screen">
+    <header class="hud">
+      <div class="hud-p"><span id="hudNameA">Tú</span><b id="hudScoreA">0</b></div>
+      <div class="hud-mid"><span id="hudRound">Ronda 1/5</span></div>
+      <div class="hud-p right"><span id="hudNameB">Rival</span><b id="hudScoreB">0</b></div>
+    </header>
+    <div id="stage" class="stage"></div>
+    <div id="overlay" class="overlay hidden"></div>
+  </section>
+</main>
+
+<script src="/app.js" defer></script>
+</body>
+</html>
