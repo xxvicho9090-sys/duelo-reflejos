@@ -4,17 +4,20 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
+const { DUELS } = require('./duels');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
 
 const ROUNDS = 5;
-const GAMES = ['reaction', 'aim', 'tap', 'memory', 'mole', 'gonogo', 'stroop', 'math', 'timing', 'odd', 'order', 'dodge'];
+const GAMES = ['reaction', 'aim', 'tap', 'memory', 'mole', 'gonogo', 'stroop', 'math', 'timing', 'odd', 'order', 'dodge', 'tug', 'rps', 'connect4', 'pong', 'tanks'];
 const RESULT_TIMEOUT_MS = 60000; // tope por ronda si alguien no responde
 const BETWEEN_ROUNDS_MS = 4500;
 const RECONNECT_GRACE_MS = 90000;
 const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
-const MAX_MSGS_PER_SEC = 30;
+const MAX_MSGS_PER_SEC = 90;
+const DUEL_RESULT_TIMEOUT_MS = 150000;
+const DUEL_READY_WAIT_MS = 15000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O
 
 const MIME = {
@@ -173,18 +176,46 @@ function startRound(room) {
     game: room.game,
     seed: room.seed,
   });
-  room.roundTimer = setTimeout(() => endRound(room), RESULT_TIMEOUT_MS);
+  room.duel = null;
+  room.dready = [false, false];
+  if (DUELS[room.game]) {
+    // esperamos a que ambos terminen la presentacion para que el duelo empiece parejo
+    room.duelGuard = setTimeout(() => beginDuel(room), DUEL_READY_WAIT_MS);
+    room.roundTimer = setTimeout(() => endRound(room), DUEL_RESULT_TIMEOUT_MS);
+  } else {
+    room.roundTimer = setTimeout(() => endRound(room), RESULT_TIMEOUT_MS);
+  }
 }
 
-function endRound(room) {
+function beginDuel(room) {
+  clearTimeout(room.duelGuard);
+  if (room.duel || room.phase !== 'playing' || !DUELS[room.game]) return;
+  const round = room.round;
+  room.duel = DUELS[room.game]({
+    round,
+    bcast: (o) => broadcast(room, { t: 'ds', ...o }),
+    sendTo: (i, o) => send(room.players[i] && room.players[i].ws, { t: 'ds', ...o }),
+    end: (winner, values) => { if (room.round === round) endRound(room, { winner, values }); },
+  });
+  room.duel.start();
+}
+
+function stopDuel(room) {
+  clearTimeout(room.duelGuard);
+  if (room.duel) { room.duel.dispose(); room.duel = null; }
+}
+
+function endRound(room, forced) {
   if (room.phase !== 'playing') return;
   clearTimeout(room.roundTimer);
+  stopDuel(room);
   room.phase = 'between';
   const [a, b] = room.players;
-  const ra = a.result ?? 0;
-  const rb = b.result ?? 0;
+  let ra = a.result ?? 0;
+  let rb = b.result ?? 0;
   let winner = -1;
-  if (ra > rb) winner = 0;
+  if (forced) { [ra, rb] = forced.values; winner = forced.winner; }
+  else if (ra > rb) winner = 0;
   else if (rb > ra) winner = 1;
   if (winner >= 0) room.players[winner].score += 1;
 
@@ -213,6 +244,7 @@ function endRound(room) {
 
 function resetMatch(room) {
   clearTimers(room);
+  stopDuel(room);
   room.round = 0;
   room.totalRounds = ROUNDS;
   room.game = null;
@@ -226,6 +258,7 @@ function resetMatch(room) {
 
 function destroyRoom(room, reason) {
   clearTimers(room);
+  stopDuel(room);
   clearTimeout(room.graceTimer);
   broadcast(room, { t: 'closed', reason });
   rooms.delete(room.code);
@@ -324,9 +357,26 @@ function handle(ws, msg) {
       return;
     }
 
+    case 'dready': {
+      const room = ws.room;
+      if (!room || room.phase !== 'playing' || msg.round !== room.round || !DUELS[room.game]) return;
+      const idx = room.players.indexOf(ws.player);
+      if (room.duel) { room.duel.sync(idx); return; }
+      room.dready[idx] = true;
+      if (room.dready[0] && room.dready[1]) beginDuel(room);
+      return;
+    }
+
+    case 'din': {
+      const room = ws.room;
+      if (!room || !room.duel || msg.round !== room.round) return;
+      room.duel.input(room.players.indexOf(ws.player), msg);
+      return;
+    }
+
     case 'result': {
       const room = ws.room;
-      if (!room || room.phase !== 'playing') return;
+      if (!room || room.phase !== 'playing' || DUELS[room.game]) return;
       if (msg.round !== room.round) return;
       const p = ws.player;
       if (p.result !== null) return;

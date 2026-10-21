@@ -201,6 +201,7 @@
         break;
       case 'round': startRound(m); break;
       case 'ack': break;
+      case 'ds': if (S.duelHandler) S.duelHandler(m); break;
       case 'oppDone': if (m.by !== S.you) setWaitText('Tu rival ya terminó…'); break;
       case 'roundEnd': showRoundEnd(m); break;
       case 'closed':
@@ -274,8 +275,9 @@
     const META = window.DuelGames && window.DuelGames.META;
     if (!META) return;
     const host = S.you === 0;
+    const ids = Object.keys(META).filter((id) => !S.solo || !META[id].duel); // los duelos en vivo necesitan a otra persona
     box.textContent = '';
-    for (const id of Object.keys(META)) {
+    const addBtn = (id) => {
       const b = document.createElement('button');
       b.textContent = META[id].title;
       b.className = S.games.includes(id) ? 'on' : '';
@@ -284,15 +286,20 @@
       b.onclick = () => {
         const set = new Set(S.games);
         if (set.has(id)) { if (set.size === 1) return; set.delete(id); } else set.add(id);
-        S.games = Object.keys(META).filter((g) => set.has(g));
+        S.games = ids.filter((g) => set.has(g));
         send({ t: 'settings', games: S.games });
         renderPicker();
       };
       box.append(b);
+    };
+    ids.filter((id) => !META[id].duel).forEach(addBtn);
+    if (ids.some((id) => META[id].duel)) {
+      const sep = document.createElement('small'); sep.className = 'sep'; sep.textContent = 'Cara a cara en vivo'; box.append(sep);
+      ids.filter((id) => META[id].duel).forEach(addBtn);
     }
-    const all = document.createElement('button');
-    if (host && S.games.length < Object.keys(META).length) {
-      all.textContent = 'Todos'; all.onclick = () => { S.games = Object.keys(META); send({ t: 'settings', games: S.games }); renderPicker(); };
+    if (host && S.games.length < ids.length) {
+      const all = document.createElement('button');
+      all.textContent = 'Todos'; all.onclick = () => { S.games = ids.slice(); send({ t: 'settings', games: S.games }); renderPicker(); };
       box.append(all);
     }
     $('pickTitle').textContent = host ? 'Elige los juegos (toca para activar o quitar)' : 'Juegos que eligió el anfitrión';
@@ -347,7 +354,7 @@
   const gameEl = $('game');
 
   function stopRound() {
-    S.runningRound = 0;
+    S.runningRound = 0; S.duelHandler = null;
     if (S.cleanup) { try { S.cleanup(); } catch {} S.cleanup = null; }
     $('stage').textContent = '';
     $('stage').className = 'stage';
@@ -391,7 +398,17 @@
     // esperamos un frame para que el escenario ya tenga su tamaño real
     await new Promise((r) => requestAnimationFrame(r));
     if (S.runningRound !== mine) return;
-    S.cleanup = GAMES[m.game]($('stage'), rng(m.seed), done);
+    let net;
+    if (meta.duel) {
+      const opp = S.players[1 - S.you];
+      net = {
+        you: S.you, names: [S.players[S.you].name, opp ? opp.name : 'Rival'],
+        send: (o) => send({ t: 'din', round: mine, ...o }),
+        on: (fn) => { S.duelHandler = fn; },
+        ready: () => send({ t: 'dready', round: mine }),
+      };
+    }
+    S.cleanup = GAMES[m.game]($('stage'), rng(m.seed), done, net);
   }
 
   function showRoundEnd(m) {
@@ -455,7 +472,7 @@
     S.name = currentName(); S.code = 'SOLO'; S.token = null; S.you = 0;
     S.solo = { diff: 1, timer: null, bag: [], game: null, round: 0, total: 5, scores: [0, 0], got: true, last: null };
     S.players = [{ name: S.name, score: 0, ready: false, connected: true }, { name: 'Robot', score: 0, ready: true, connected: true }];
-    S.games = Object.keys(window.DuelGames.META); S.round = 0; S.totalRounds = 5; S.scores = [0, 0]; S.history = []; S.phase = 'lobby';
+    S.games = Object.keys(window.DuelGames.META).filter((id) => !window.DuelGames.META[id].duel); S.round = 0; S.totalRounds = 5; S.scores = [0, 0]; S.history = []; S.phase = 'lobby';
     renderLobby(); renderHud(); show('lobby');
   }
   function stopSoloTimers() { if (S.solo && S.solo.timer) clearTimeout(S.solo.timer); }
