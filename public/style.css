@@ -70,7 +70,7 @@ input:focus-visible { outline: none; border-color: var(--gold); }
 .plist .st { font-size: .8rem; color: var(--mute); font-weight: 700; }
 .plist .st.ok { color: var(--good); }
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 340px; }
-.chips span { font-size: .72rem; font-weight: 700; color: var(--mute); background: var(--ink-2); border-radius: 999px; padding: 5px 10px; }
+.chips span, .chips button { font-size: .72rem; font-weight: 700; color: var(--mute); background: var(--ink-2); border-radius: 999px; padding: 5px 10px; }
 
 .net { position: fixed; top: 0; left: 0; right: 0; z-index: 50; text-align: center; padding: calc(6px + var(--safe-t)) 10px 6px;
   background: var(--bad); color: #fff; font-weight: 800; font-size: .85rem; }
@@ -175,3 +175,9 @@ canvas.cv { position: absolute; inset: 0; width: 100%; height: 100%; display: bl
 .overlay .btn { margin-top: 4px; }
 
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+.chips.pick button { border: 2px solid transparent; font-family: var(--body); cursor: pointer; transition: transform .1s, background .15s; }
+.chips.pick button.on { background: #2a2150; border-color: var(--gold); color: var(--cream); }
+.chips.pick button:active { transform: scale(.95); }
+.chips.pick button:disabled { cursor: default; opacity: 1; }
+.chips.pick button:not(.on) { opacity: .55; }

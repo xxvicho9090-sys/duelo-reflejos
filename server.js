@@ -111,18 +111,19 @@ function snapshot(room, idx) {
     totalRounds: room.totalRounds,
     game: room.game,
     seed: room.seed,
+    games: room.games,
     submitted: !!me && me.result !== null,
   };
 }
 
 function pushState(room) {
-  broadcast(room, { t: 'players', players: publicPlayers(room), phase: room.phase });
+  broadcast(room, { t: 'players', players: publicPlayers(room), phase: room.phase, games: room.games });
 }
 
 // bolsa barajada: no se repite ningun juego hasta haber salido todos
 function pickGame(room) {
   if (!room.bag || room.bag.length === 0) {
-    room.bag = GAMES.slice();
+    room.bag = room.games.slice();
     for (let i = room.bag.length - 1; i > 0; i--) {
       const j = crypto.randomInt(i + 1);
       [room.bag[i], room.bag[j]] = [room.bag[j], room.bag[i]];
@@ -231,7 +232,7 @@ function handle(ws, msg) {
       if (ws.room) return;
       const code = makeCode();
       const room = {
-        code, players: [], phase: 'lobby', round: 0, totalRounds: ROUNDS,
+        code, players: [], phase: 'lobby', games: GAMES.slice(), bag: null, round: 0, totalRounds: ROUNDS,
         game: null, seed: 0, roundTimer: null, nextTimer: null, graceTimer: null, lastActive: Date.now(),
       };
       const p = newPlayer(ws, msg.name);
@@ -273,6 +274,19 @@ function handle(ws, msg) {
       ws.room = room;
       ws.player = p;
       send(ws, { ...snapshot(room, 1), t: 'joined', token: p.token });
+      pushState(room);
+      return;
+    }
+
+    case 'settings': {
+      const room = ws.room;
+      if (!room || room.players[0] !== ws.player) return; // solo quien creo la sala
+      if (room.phase !== 'lobby' && room.phase !== 'over') return;
+      if (!Array.isArray(msg.games)) return;
+      const games = GAMES.filter((g) => msg.games.includes(g));
+      if (games.length === 0) return;
+      room.games = games;
+      room.bag = null;
       pushState(room);
       return;
     }

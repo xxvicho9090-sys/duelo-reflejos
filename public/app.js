@@ -49,7 +49,7 @@
     ws: null, code: null, token: null, you: 0, name: '',
     players: [], phase: 'home', round: 0, totalRounds: 5,
     runningRound: 0, cleanup: null, closing: false, retry: 0, pingTimer: null, scores: [0, 0],
-    pending: [], history: [],
+    pending: [], history: [], games: [],
   };
 
   function show(id) {
@@ -116,7 +116,7 @@
         break;
       case 'snapshot': applySnapshot(m); break;
       case 'players':
-        S.players = m.players; S.phase = m.phase;
+        S.players = m.players; S.phase = m.phase; if (m.games) S.games = m.games;
         if (m.phase === 'lobby') { S.history = []; S.scores = [0, 0]; S.round = 0; }
         renderLobby(); renderHud();
         if (S.phase === 'lobby' && $('game').classList.contains('active')) { stopRound(); show('lobby'); }
@@ -139,7 +139,7 @@
   }
 
   function applySnapshot(m) {
-    S.players = m.players; S.phase = m.phase; S.round = m.round; S.totalRounds = m.totalRounds; S.you = m.you;
+    S.players = m.players; S.phase = m.phase; S.games = m.games || S.games; S.round = m.round; S.totalRounds = m.totalRounds; S.you = m.you;
     S.scores = m.players.map((p) => p.score);
     if (m.round === 0) S.history = [];
     renderLobby(); renderHud();
@@ -171,11 +171,41 @@
       li.append(n, st);
       ul.append(li);
     });
+    renderPicker();
     const two = S.players.length === 2;
     const me = S.players[S.you];
     $('lobbyMsg').textContent = two ? (me && me.ready ? 'Esperando que tu rival esté listo…' : '¡Ya están los dos! Pulsa listo.') : 'Esperando al otro jugador… compárteles el código.';
     $('btnReady').disabled = !two || (me && me.ready);
     $('btnReady').textContent = S.phase === 'over' ? 'Revancha' : '¡Estoy listo!';
+  }
+
+  function renderPicker() {
+    const box = $('gamePick');
+    const META = window.DuelGames && window.DuelGames.META;
+    if (!META) return;
+    const host = S.you === 0;
+    box.textContent = '';
+    for (const id of Object.keys(META)) {
+      const b = document.createElement('button');
+      b.textContent = META[id].title;
+      b.className = S.games.includes(id) ? 'on' : '';
+      b.disabled = !host;
+      b.setAttribute('aria-pressed', S.games.includes(id) ? 'true' : 'false');
+      b.onclick = () => {
+        const set = new Set(S.games);
+        if (set.has(id)) { if (set.size === 1) return; set.delete(id); } else set.add(id);
+        S.games = Object.keys(META).filter((g) => set.has(g));
+        send({ t: 'settings', games: S.games });
+        renderPicker();
+      };
+      box.append(b);
+    }
+    const all = document.createElement('button');
+    if (host && S.games.length < Object.keys(META).length) {
+      all.textContent = 'Todos'; all.onclick = () => { S.games = Object.keys(META); send({ t: 'settings', games: S.games }); renderPicker(); };
+      box.append(all);
+    }
+    $('pickTitle').textContent = host ? 'Elige los juegos (toca para activar o quitar)' : 'Juegos que eligió el anfitrión';
   }
 
   function renderHud() {

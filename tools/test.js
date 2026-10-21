@@ -31,11 +31,15 @@ server.listen(0, async () => {
     const c = client(port); await c.open; c.send({ t: 'join', code: ja.code, name: 'X' });
     assert.strictEqual((await c.next('error')).code, 'full'); c.ws.close();
 
+    b.send({ t: 'settings', games: ['tap'] }); // el invitado no puede cambiar nada
+    a.send({ t: 'settings', games: ['math', 'tap', 'nope'] });
+    let upd; do { upd = await b.next('players'); } while (upd.games.length !== 2);
+    assert.ok(upd.games.every((g) => ['math', 'tap'].includes(g)));
     a.send({ t: 'ready' }); b.send({ t: 'ready' });
     let reconnected = false; let lastEnd;
     for (let r = 1; r <= 5; r++) {
       const ra = await a.next('round'); const rb = await b.next('round');
-      assert.strictEqual(ra.seed, rb.seed); assert.strictEqual(ra.round, r);
+      assert.strictEqual(ra.seed, rb.seed); assert.ok(['math', 'tap'].includes(ra.game)); assert.strictEqual(ra.round, r);
       a.send({ t: 'result', round: r, value: 500 + r });
       a.send({ t: 'result', round: r, value: 99999 }); // duplicado: debe ignorarse
       if (r === 3) { // Beto se cae y vuelve con su token antes de responder
