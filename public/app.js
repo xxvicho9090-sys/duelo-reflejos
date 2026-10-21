@@ -49,7 +49,7 @@
     ws: null, code: null, token: null, you: 0, name: '',
     players: [], phase: 'home', round: 0, totalRounds: 5,
     runningRound: 0, cleanup: null, closing: false, retry: 0, pingTimer: null, scores: [0, 0],
-    pending: [],
+    pending: [], history: [],
   };
 
   function show(id) {
@@ -117,6 +117,7 @@
       case 'snapshot': applySnapshot(m); break;
       case 'players':
         S.players = m.players; S.phase = m.phase;
+        if (m.phase === 'lobby') { S.history = []; S.scores = [0, 0]; S.round = 0; }
         renderLobby(); renderHud();
         if (S.phase === 'lobby' && $('game').classList.contains('active')) { stopRound(); show('lobby'); }
         break;
@@ -140,6 +141,7 @@
   function applySnapshot(m) {
     S.players = m.players; S.phase = m.phase; S.round = m.round; S.totalRounds = m.totalRounds; S.you = m.you;
     S.scores = m.players.map((p) => p.score);
+    if (m.round === 0) S.history = [];
     renderLobby(); renderHud();
     if (m.phase === 'lobby' || m.phase === 'over' || m.phase === 'paused' && m.round === 0) {
       stopRound(); show('lobby');
@@ -180,9 +182,18 @@
     const a = S.players[S.you]; const b = S.players[1 - S.you];
     $('hudNameA').textContent = a ? a.name : 'Tú';
     $('hudNameB').textContent = b ? b.name : 'Rival';
-    $('hudScoreA').textContent = S.scores[S.you] ?? 0;
-    $('hudScoreB').textContent = S.scores[1 - S.you] ?? 0;
-    $('hudRound').textContent = S.round ? `Ronda ${S.round}/${S.totalRounds}` : '';
+    for (const [id, v] of [['hudScoreA', S.scores[S.you] ?? 0], ['hudScoreB', S.scores[1 - S.you] ?? 0]]) {
+      const n = $(id);
+      if (n.textContent !== String(v)) { n.textContent = v; n.classList.remove('pop'); void n.offsetWidth; n.classList.add('pop'); }
+    }
+    const pips = $('pips');
+    pips.textContent = '';
+    for (let i = 0; i < S.totalRounds; i++) {
+      const p = document.createElement('i');
+      if (S.history[i]) p.className = S.history[i];
+      else if (i === S.round - 1) p.className = 'cur';
+      pips.append(p);
+    }
   }
 
   function leaveLocal() {
@@ -205,6 +216,7 @@
     for (const n of html) overlay.append(n);
   }
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  window.DU = { el, beep, buzz, sleep };
   function hideOverlay() { overlay.classList.add('hidden'); overlay.textContent = ''; }
   function setWaitText(t) {
     if (overlay.classList.contains('hidden') || overlay.dataset.kind !== 'wait') return;
@@ -212,13 +224,7 @@
   }
 
   // ---------- rondas ----------
-  const GAMES = {};
-  const META = {
-    reaction: { title: 'Reflejo', how: 'Espera a que la pantalla se ponga VERDE y toca lo más rápido que puedas. Si tocas antes, pierdes la ronda.', fmt: (v) => (v === 0 ? 'Muy pronto' : `${1000 - v} ms`) },
-    aim: { title: 'Puntería', how: 'Toca los círculos antes de que desaparezcan. Tienes 10 segundos.', fmt: (v) => `${v} aciertos` },
-    tap: { title: 'Toques rápidos', how: 'Toca el botón tantas veces como puedas en 5 segundos.', fmt: (v) => `${v} toques` },
-    memory: { title: 'Memoria', how: 'Mira la secuencia de colores y repítela. Cada nivel agrega un color.', fmt: (v) => `${Math.floor(v / 20)} niveles` },
-  };
+  const gameEl = $('game');
 
   function stopRound() {
     S.runningRound = 0;
@@ -227,19 +233,25 @@
     $('stage').className = 'stage';
   }
 
+  const RING = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="46"/><circle class="fg" cx="50" cy="50" r="46"/></svg>';
+
   async function startRound(m) {
     if (S.runningRound === m.round) return;
     stopRound();
     S.runningRound = m.round; S.round = m.round; S.totalRounds = m.totalRounds;
     const mine = m.round;
     show('game'); renderHud(); keepAwake();
+    const { GAMES, META } = window.DuelGames;
     const meta = META[m.game];
+    gameEl.style.setProperty('--g1', meta.g[0]); gameEl.style.setProperty('--g2', meta.g[1]);
     overlay.dataset.kind = 'intro';
-    setOverlay([el('p', 'sub', `Ronda ${m.round} de ${m.totalRounds}`), el('h2', '', meta.title), el('p', 'sub', meta.how)]);
+    const ico = el('div', 'ico'); ico.innerHTML = meta.icon;
+    setOverlay([ico, el('p', 'eyebrow', `Ronda ${m.round} de ${m.totalRounds}`), el('h2', '', meta.title), el('p', 'sub', meta.how)]);
     await sleep(2600);
     for (let n = 3; n >= 1; n--) {
       if (S.runningRound !== mine) return;
-      setOverlay([el('div', 'num', String(n))]);
+      const ring = el('div', 'ring'); ring.innerHTML = RING; ring.append(el('div', 'num', String(n)));
+      setOverlay([ring]);
       beep(440, 0.08);
       await sleep(750);
     }
@@ -254,27 +266,32 @@
       overlay.dataset.kind = 'wait';
       setOverlay([el('h2', '', 'Esperando al rival…')]);
     };
+    // esperamos un frame para que el escenario ya tenga su tamaño real
+    await new Promise((r) => requestAnimationFrame(r));
+    if (S.runningRound !== mine) return;
     S.cleanup = GAMES[m.game]($('stage'), rng(m.seed), done);
   }
 
   function showRoundEnd(m) {
-    if (S.runningRound !== m.round && S.runningRound !== 0) { /* resultado de otra ronda: igual lo mostramos */ }
     stopRound();
     show('game');
     S.scores = m.scores; S.round = m.round;
+    S.history[m.round - 1] = m.winner === -1 ? 'tie' : m.winner === S.you ? 'me' : 'opp';
     renderHud();
-    const meta = META[m.game];
+    const meta = window.DuelGames.META[m.game];
     const mine = m.values[S.you]; const theirs = m.values[1 - S.you];
     const iWon = m.winner === S.you; const tie = m.winner === -1;
     overlay.dataset.kind = 'end';
+    const ico = el('div', 'ico'); ico.innerHTML = meta.icon;
     const verdict = el('div', 'verdict ' + (tie ? '' : iWon ? 'win' : 'lose'), tie ? 'Empate' : iWon ? '¡Punto para ti!' : 'Punto para tu rival');
     const vs = el('div', 'vs');
-    const mk = (name, v, win) => { const d = el('div', win ? 'win' : ''); d.append(el('small', '', name), el('b', '', meta.fmt(v))); return d; };
-    vs.append(mk('Tú', mine, iWon), mk(S.players[1 - S.you] ? S.players[1 - S.you].name : 'Rival', theirs, !tie && !iWon));
-    const nodes = [el('p', 'sub', meta.title), verdict, vs, el('p', 'sub', `Marcador ${m.scores[S.you]} – ${m.scores[1 - S.you]}`)];
+    const mk = (cls, name, v, win) => { const d = el('div', cls + (win ? ' win' : '')); d.append(el('small', '', name), el('b', '', meta.fmt(v))); return d; };
+    const oppName = S.players[1 - S.you] ? S.players[1 - S.you].name : 'Rival';
+    vs.append(mk('m', 'Tú', mine, iWon), mk('o', oppName, theirs, !tie && !iWon));
+    const nodes = [ico, el('p', 'eyebrow', meta.title), verdict, vs];
     if (m.over) {
       const champ = m.scores[S.you] > m.scores[1 - S.you];
-      nodes.push(el('h2', '', champ ? '🏆 ¡Ganaste el duelo!' : 'Perdiste el duelo'));
+      nodes.push(el('h2', '', champ ? '¡Ganaste el duelo!' : 'Perdiste el duelo'), el('p', 'sub', `Marcador final ${m.scores[S.you]} – ${m.scores[1 - S.you]}`));
       const again = el('button', 'btn primary', 'Revancha');
       again.onclick = () => { send({ t: 'ready' }); show('lobby'); };
       const out = el('button', 'btn ghost', 'Salir');
@@ -282,134 +299,13 @@
       nodes.push(again, out);
       S.phase = 'over';
       renderLobby();
-      if (champ) beep(988, 0.3, 'triangle'); else beep(220, 0.3, 'sawtooth');
+      if (champ) { beep(988, 0.3, 'triangle'); buzz([60, 40, 60, 40, 120]); } else beep(220, 0.3, 'sawtooth');
     } else {
       nodes.push(el('p', 'sub', 'Siguiente ronda en un momento…'));
       if (iWon) { beep(784, 0.15); buzz(60); } else if (!tie) { beep(196, 0.2, 'sawtooth'); buzz([40, 40, 40]); }
     }
     setOverlay(nodes);
   }
-
-  // ---------- minijuegos ----------
-  // Cada juego recibe (stage, rand, done) y devuelve una funcion de limpieza.
-  // El valor enviado siempre es "mas alto = mejor".
-
-  GAMES.reaction = (stage, rand, done) => {
-    const wait = 1500 + Math.floor(rand() * 3200);
-    let t0 = 0; let green = false; let over = false; let timer; let guard;
-    stage.className = 'stage red';
-    const msg = el('div', 'big', 'Espera…');
-    stage.append(msg);
-    timer = setTimeout(() => {
-      requestAnimationFrame(() => {
-        if (over) return;
-        green = true; t0 = performance.now();
-        stage.className = 'stage green';
-        msg.textContent = '¡YA!';
-        beep(1000, 0.1, 'square', 0.1);
-        guard = setTimeout(() => finish(1), 3000);
-      });
-    }, wait);
-    function finish(v) { if (over) return; over = true; clearTimeout(timer); clearTimeout(guard); done(v); }
-    const onDown = () => {
-      if (over) return;
-      if (!green) { buzz(120); finish(0); return; }
-      const ms = Math.min(999, Math.max(1, Math.round(performance.now() - t0)));
-      finish(1000 - ms);
-    };
-    stage.addEventListener('pointerdown', onDown);
-    return () => { over = true; clearTimeout(timer); clearTimeout(guard); stage.removeEventListener('pointerdown', onDown); };
-  };
-
-  GAMES.aim = (stage, rand, done) => {
-    const DURATION = 10000; const LIFE = 1100;
-    const spots = Array.from({ length: 80 }, () => [10 + rand() * 80, 12 + rand() * 76]);
-    let i = 0; let hits = 0; let over = false; let tgtTimer; const t0 = performance.now();
-    const bar = el('div', 'timebar'); const cnt = el('div', 'counter', '0');
-    stage.append(bar, cnt);
-    bar.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }], { duration: DURATION, fill: 'forwards', easing: 'linear' });
-    let cur = null;
-    function next() {
-      if (over) return;
-      if (cur) cur.remove();
-      const [x, y] = spots[i % spots.length]; i++;
-      cur = el('button', 'target');
-      cur.style.left = x + '%'; cur.style.top = y + '%';
-      cur.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        if (over || e.currentTarget !== cur) return;
-        hits++; cnt.textContent = String(hits); beep(600 + hits * 12, 0.05, 'triangle', 0.1); buzz(15);
-        clearTimeout(tgtTimer); next();
-      });
-      stage.append(cur);
-      tgtTimer = setTimeout(next, LIFE);
-    }
-    next();
-    const end = setTimeout(() => { over = true; clearTimeout(tgtTimer); if (cur) cur.remove(); done(hits); }, DURATION);
-    void t0;
-    return () => { over = true; clearTimeout(tgtTimer); clearTimeout(end); };
-  };
-
-  GAMES.tap = (stage, rand, done) => {
-    void rand;
-    const DURATION = 5000; let n = 0; let started = false; let over = false; let end;
-    const bar = el('div', 'timebar'); const cnt = el('div', 'counter', '0');
-    const btn = el('button', 'tapbtn', 'TOCA');
-    stage.append(bar, cnt, btn);
-    btn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (over) return;
-      if (!started) {
-        started = true;
-        bar.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }], { duration: DURATION, fill: 'forwards', easing: 'linear' });
-        end = setTimeout(() => { over = true; done(n); }, DURATION);
-      }
-      n++; cnt.textContent = String(n); buzz(8);
-    });
-    // si nunca toca, cerramos igual para no bloquear a su rival
-    const guard = setTimeout(() => { if (!started && !over) { over = true; done(0); } }, 15000);
-    return () => { over = true; clearTimeout(end); clearTimeout(guard); };
-  };
-
-  GAMES.memory = (stage, rand, done) => {
-    const MAX = 12; const TOTAL_LIMIT = 32000;
-    const seq = Array.from({ length: MAX }, () => Math.floor(rand() * 4));
-    const FREQ = [262, 330, 392, 523];
-    const grid = el('div', 'pads');
-    const pads = [0, 1, 2, 3].map((i) => { const p = el('button', 'pad'); p.dataset.i = String(i); grid.append(p); return p; });
-    const status = el('div', 'counter', '');
-    stage.append(status, grid);
-    let level = 1; let pos = 0; let accepting = false; let over = false; let completed = 0; let partial = 0;
-    const flash = async (i, ms = 420) => { pads[i].classList.add('on'); beep(FREQ[i], ms / 1000, 'sine', 0.2); await sleep(ms); pads[i].classList.remove('on'); await sleep(160); };
-    const finish = () => { if (over) return; over = true; clearTimeout(limit); done(completed * 20 + partial); };
-    const limit = setTimeout(finish, TOTAL_LIMIT);
-    async function play() {
-      accepting = false; pos = 0; partial = 0;
-      status.textContent = 'Mira…';
-      await sleep(500);
-      for (let k = 0; k < level; k++) { if (over) return; await flash(seq[k], Math.max(240, 460 - level * 20)); }
-      if (over) return;
-      status.textContent = 'Tu turno';
-      accepting = true;
-    }
-    stage.addEventListener('pointerdown', onDown);
-    function onDown(e) {
-      const pad = e.target.closest && e.target.closest('.pad');
-      if (!pad || !accepting || over) return;
-      const i = Number(pad.dataset.i);
-      pad.classList.add('on'); beep(FREQ[i], 0.18, 'sine', 0.2);
-      setTimeout(() => pad.classList.remove('on'), 140);
-      if (i !== seq[pos]) { buzz(150); accepting = false; finish(); return; }
-      pos++; partial = Math.min(19, pos);
-      if (pos === level) {
-        completed = level; partial = 0; accepting = false;
-        if (level >= MAX) { finish(); return; }
-        level++; play();
-      }
-    }
-    play();
-    return () => { over = true; clearTimeout(limit); stage.removeEventListener('pointerdown', onDown); };
-  };
 
   // ---------- acciones de UI ----------
   function currentName() {

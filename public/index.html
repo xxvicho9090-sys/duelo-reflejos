@@ -3,12 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0f1226">
+<meta name="theme-color" content="#14101d">
 <meta name="description" content="Duelo de reflejos online para dos jugadores">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>Duelo de Reflejos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Unbounded:wght@600;800&display=swap">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -17,9 +20,9 @@
 <main id="app">
   <!-- INICIO -->
   <section id="home" class="screen active">
-    <div class="logo">⚡</div>
-    <h1>Duelo de Reflejos</h1>
-    <p class="sub">Dos jugadores, 5 rondas, un ganador.</p>
+    <svg class="mark" viewBox="0 0 96 96" aria-hidden="true"><circle cx="36" cy="48" r="26" fill="#ff7a3d"/><circle cx="60" cy="48" r="26" fill="#38d6c9"/><path d="M48 27a26 26 0 0 1 0 42a26 26 0 0 1 0-42z" fill="#f6efe3"/></svg>
+    <h1><em>Duelo</em> de <span>Reflejos</span></h1>
+    <p class="sub">12 minijuegos de habilidad. Dos jugadores, 5 rondas, un ganador.</p>
     <label class="field">Tu nombre
       <input id="name" maxlength="14" autocomplete="nickname" placeholder="Ej: Vicho">
     </label>
@@ -30,16 +33,17 @@
       <button id="btnJoin" class="btn">Unirme</button>
     </div>
     <p id="homeErr" class="err" role="alert"></p>
-    <button id="btnInstall" class="btn ghost hidden">📲 Instalar en el celular</button>
+    <button id="btnInstall" class="btn ghost hidden">Instalar en el celular</button>
   </section>
 
   <!-- SALA -->
   <section id="lobby" class="screen">
-    <p class="sub">Código de sala</p>
+    <p class="eyebrow">Código de sala</p>
     <div id="roomCode" class="roomcode">----</div>
     <button id="btnShare" class="btn">Compartir invitación</button>
     <ul id="plist" class="plist"></ul>
     <p id="lobbyMsg" class="sub">Esperando al otro jugador…</p>
+    <div class="chips" aria-hidden="true"><span>Reflejo</span><span>Puntería</span><span>Toques</span><span>Memoria</span><span>Topos</span><span>Semáforo</span><span>Colores</span><span>Cálculo</span><span>Precisión</span><span>Diferente</span><span>Números</span><span>Esquiva</span></div>
     <button id="btnReady" class="btn primary" disabled>¡Estoy listo!</button>
     <button id="btnLeave" class="btn ghost">Salir</button>
   </section>
@@ -47,9 +51,9 @@
   <!-- JUEGO -->
   <section id="game" class="screen">
     <header class="hud">
-      <div class="hud-p"><span id="hudNameA">Tú</span><b id="hudScoreA">0</b></div>
-      <div class="hud-mid"><span id="hudRound">Ronda 1/5</span></div>
-      <div class="hud-p right"><span id="hudNameB">Rival</span><b id="hudScoreB">0</b></div>
+      <div class="hud-p me"><b id="hudScoreA">0</b><span id="hudNameA">Tú</span></div>
+      <div class="pips" id="pips" aria-label="Rondas"></div>
+      <div class="hud-p opp right"><b id="hudScoreB">0</b><span id="hudNameB">Rival</span></div>
     </header>
     <div id="stage" class="stage"></div>
     <div id="overlay" class="overlay hidden"></div>
@@ -57,5 +61,6 @@
 </main>
 
 <script src="/app.js" defer></script>
+<script src="/games.js" defer></script>
 </body>
 </html>

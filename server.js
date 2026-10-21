@@ -9,8 +9,8 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
 
 const ROUNDS = 5;
-const GAMES = ['reaction', 'aim', 'tap', 'memory'];
-const RESULT_TIMEOUT_MS = 40000; // tope por ronda si alguien no responde
+const GAMES = ['reaction', 'aim', 'tap', 'memory', 'mole', 'gonogo', 'stroop', 'math', 'timing', 'odd', 'order', 'dodge'];
+const RESULT_TIMEOUT_MS = 60000; // tope por ronda si alguien no responde
 const BETWEEN_ROUNDS_MS = 4500;
 const RECONNECT_GRACE_MS = 90000;
 const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
@@ -53,12 +53,19 @@ const server = http.createServer((req, res) => {
       return;
     }
     const ext = path.extname(file).toLowerCase();
-    const noCache = urlPath === '/sw.js' || urlPath === '/index.html' || urlPath === '/manifest.webmanifest';
-    res.writeHead(200, {
+    // revalidar siempre: el navegador pregunta con ETag y recibe 304 si no cambio
+    const etag = '"' + crypto.createHash('sha1').update(data).digest('hex').slice(0, 16) + '"';
+    const headers = {
       'Content-Type': MIME[ext] || 'application/octet-stream',
-      'Cache-Control': noCache ? 'no-cache' : 'public, max-age=86400',
+      'Cache-Control': 'no-cache',
+      ETag: etag,
       'X-Content-Type-Options': 'nosniff',
-    });
+    };
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, headers).end();
+      return;
+    }
+    res.writeHead(200, headers);
     res.end(data);
   });
 });
@@ -112,12 +119,17 @@ function pushState(room) {
   broadcast(room, { t: 'players', players: publicPlayers(room), phase: room.phase });
 }
 
+// bolsa barajada: no se repite ningun juego hasta haber salido todos
 function pickGame(room) {
-  let g;
-  do {
-    g = GAMES[crypto.randomInt(GAMES.length)];
-  } while (g === room.game && GAMES.length > 1);
-  return g;
+  if (!room.bag || room.bag.length === 0) {
+    room.bag = GAMES.slice();
+    for (let i = room.bag.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(i + 1);
+      [room.bag[i], room.bag[j]] = [room.bag[j], room.bag[i]];
+    }
+    if (room.bag[room.bag.length - 1] === room.game) room.bag.unshift(room.bag.pop());
+  }
+  return room.bag.pop();
 }
 
 function clearTimers(room) {
