@@ -1,6 +1,7 @@
 'use strict';
-const CACHE = 'duelo-v3';
-const SHELL = ['/', '/index.html', '/style.css?v=3', '/app.js?v=3', '/games.js?v=3', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const BUILD = '__BUILD__';
+const CACHE = 'duelo-' + BUILD;
+const SHELL = ['/', '/index.html', `/style.css?v=${BUILD}`, `/app.js?v=${BUILD}`, `/games.js?v=${BUILD}`, '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -56,6 +56,29 @@
     for (const el of document.querySelectorAll('.screen')) el.classList.toggle('active', el.id === id);
   }
 
+  // ---------- actualizacion automatica ----------
+  const BUILD = (document.querySelector('meta[name="build"]') || {}).content || '';
+  let updateAvail = false;
+  function busy() { return S.phase === 'playing' || S.phase === 'between' || S.phase === 'paused'; }
+  function maybeUpdate() {
+    if (!updateAvail || busy()) return;
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return; // no interrumpir mientras escribe
+    try { if (sessionStorage.getItem('duelo.reloaded') === updateAvail) return; sessionStorage.setItem('duelo.reloaded', updateAvail); } catch {}
+    const t = $('toast'); t.textContent = 'Actualizando a la nueva versión…'; t.classList.remove('hidden');
+    setTimeout(() => location.reload(), 900);
+  }
+  function newBuild(b) { if (b && BUILD && b !== BUILD) { updateAvail = b; maybeUpdate(); } }
+  async function checkVersion() {
+    try {
+      const r = await fetch('/version', { cache: 'no-store' });
+      if (r.ok) newBuild((await r.text()).trim());
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if (reg) reg.update().catch(() => {});
+    } catch {}
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+  setInterval(checkVersion, 5 * 60 * 1000);
+
   // ---------- red ----------
   function wsUrl() { return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host; }
 
@@ -114,6 +137,7 @@
         store.set(SESSION_KEY, JSON.stringify({ code: m.code, token: m.token, name: S.name }));
         applySnapshot(m);
         break;
+      case 'hello': newBuild(m.build); break;
       case 'snapshot': applySnapshot(m); break;
       case 'players':
         S.players = m.players; S.phase = m.phase; if (m.games) S.games = m.games;
@@ -136,6 +160,7 @@
         break;
       case 'pong': break;
     }
+    maybeUpdate();
   }
 
   function applySnapshot(m) {
@@ -398,6 +423,8 @@
   })();
 
   if ('serviceWorker' in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) checkVersion(); });
     window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
   }
 })();

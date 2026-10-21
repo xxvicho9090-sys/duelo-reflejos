@@ -28,6 +28,22 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 
+// ---------- version de la app ----------
+// hash de todos los archivos publicos: cambia en cada despliegue y dispara la actualizacion automatica
+function computeBuild() {
+  const h = crypto.createHash('sha1');
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const p = path.join(dir, name);
+      if (fs.statSync(p).isDirectory()) walk(p);
+      else { h.update(name); h.update(fs.readFileSync(p)); }
+    }
+  };
+  walk(PUBLIC);
+  return h.digest('hex').slice(0, 10);
+}
+const BUILD = computeBuild();
+
 // ---------- HTTP estatico ----------
 const server = http.createServer((req, res) => {
   let urlPath;
@@ -41,6 +57,10 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok');
     return;
   }
+  if (urlPath === '/version') {
+    res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }).end(BUILD);
+    return;
+  }
   if (urlPath === '/') urlPath = '/index.html';
   const file = path.normalize(path.join(PUBLIC, urlPath));
   if (!file.startsWith(PUBLIC + path.sep)) {
@@ -52,6 +72,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
       return;
     }
+    if (urlPath === '/index.html' || urlPath === '/sw.js') data = Buffer.from(data.toString('utf8').replaceAll('__BUILD__', BUILD));
     const ext = path.extname(file).toLowerCase();
     // revalidar siempre: el navegador pregunta con ETag y recibe 304 si no cambio
     const etag = '"' + crypto.createHash('sha1').update(data).digest('hex').slice(0, 16) + '"';
@@ -332,6 +353,7 @@ function handle(ws, msg) {
 const wss = new WebSocketServer({ server, maxPayload: 2048 });
 
 wss.on('connection', (ws) => {
+  send(ws, { t: 'hello', build: BUILD });
   ws.isAlive = true;
   ws.room = null;
   ws.player = null;

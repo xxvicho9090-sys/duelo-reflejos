@@ -181,3 +181,6 @@ canvas.cv { position: absolute; inset: 0; width: 100%; height: 100%; display: bl
 .chips.pick button:active { transform: scale(.95); }
 .chips.pick button:disabled { cursor: default; opacity: 1; }
 .chips.pick button:not(.on) { opacity: .55; }
+
+.toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translateX(-50%); z-index: 60; background: var(--gold); color: #2a1d00;
+  font-weight: 800; padding: 12px 20px; border-radius: 999px; box-shadow: 0 8px 30px #0008; animation: enter .3s var(--ease); }

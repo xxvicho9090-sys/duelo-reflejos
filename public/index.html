@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#14101d">
 <meta name="description" content="Duelo de reflejos online para dos jugadores">
+<meta name="build" content="__BUILD__">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
@@ -12,10 +13,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Unbounded:wght@600;800&display=swap">
-<link rel="stylesheet" href="/style.css?v=3">
+<link rel="stylesheet" href="/style.css?v=__BUILD__">
 </head>
 <body>
 <div id="net" class="net hidden" role="status">Reconectando…</div>
+
+<div id="toast" class="toast hidden" role="status"></div>
 
 <main id="app">
   <!-- INICIO -->
@@ -61,7 +64,7 @@
   </section>
 </main>
 
-<script src="/app.js?v=3" defer></script>
-<script src="/games.js?v=3" defer></script>
+<script src="/app.js?v=__BUILD__" defer></script>
+<script src="/games.js?v=__BUILD__" defer></script>
 </body>
 </html>
