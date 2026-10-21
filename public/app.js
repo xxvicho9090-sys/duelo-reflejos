@@ -38,6 +38,60 @@
     } catch {}
   }
 
+  // ---------- efectos: particulas, textos flotantes, confeti ----------
+  const fxCanvas = $('fx'); const fctx = fxCanvas.getContext('2d');
+  let parts = []; let fxRun = false; let fxW = 0; let fxH = 0; let fxLeft = 0; let fxTop = 0;
+  function sizeFx() {
+    const r = $('game').getBoundingClientRect(); if (!r.width) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    fxLeft = r.left; fxTop = r.top; fxW = r.width; fxH = r.height;
+    fxCanvas.width = Math.round(fxW * dpr); fxCanvas.height = Math.round(fxH * dpr); fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', sizeFx);
+  function fxLoop() {
+    fctx.clearRect(0, 0, fxW, fxH);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]; p.life += 1;
+      if (p.life > p.max) { parts.splice(i, 1); continue; }
+      p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      fctx.globalAlpha = Math.max(0, 1 - p.life / p.max); fctx.fillStyle = p.c;
+      if (p.rect) { fctx.save(); fctx.translate(p.x, p.y); fctx.rotate(p.rot); fctx.fillRect(-p.s, -p.s / 2, p.s * 2, p.s); fctx.restore(); }
+      else { fctx.beginPath(); fctx.arc(p.x, p.y, p.s, 0, 7); fctx.fill(); }
+    }
+    fctx.globalAlpha = 1;
+    if (parts.length) requestAnimationFrame(fxLoop); else { fxRun = false; fctx.clearRect(0, 0, fxW, fxH); }
+  }
+  function addParts(list) {
+    if (!fxW) sizeFx();
+    if (parts.length > 260) parts.splice(0, list.length);
+    parts.push(...list);
+    if (!fxRun) { fxRun = true; requestAnimationFrame(fxLoop); }
+  }
+  function burst(cx, cy, color = '#ffd166', n = 12, power = 1) {
+    if (!fxW) sizeFx();
+    const x = cx - fxLeft; const y = cy - fxTop; const list = [];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.283; const v = (1.5 + Math.random() * 3.5) * power;
+      list.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, g: 0.14, s: 2 + Math.random() * 3, c: color, life: 0, max: 22 + Math.random() * 16, rot: 0, vr: 0 });
+    }
+    addParts(list);
+  }
+  function confetti(n = 80) {
+    sizeFx();
+    const cols = ['#ff7a3d', '#38d6c9', '#ffd166', '#f6efe3', '#7be495', '#ff5d73']; const list = [];
+    for (let i = 0; i < n; i++) {
+      list.push({ x: Math.random() * fxW, y: -10 - Math.random() * 120, vx: (Math.random() - 0.5) * 3, vy: 1 + Math.random() * 3, g: 0.05, s: 3 + Math.random() * 3,
+        c: cols[i % cols.length], life: 0, max: 90 + Math.random() * 50, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, rect: true });
+    }
+    addParts(list);
+  }
+  function float(cx, cy, text, color = '#fff') {
+    const n = document.createElement('div'); n.className = 'floaty'; n.textContent = text; n.style.color = color;
+    n.style.left = (cx - fxLeft) + 'px'; n.style.top = (cy - fxTop) + 'px';
+    $('game').append(n); setTimeout(() => n.remove(), 750);
+  }
+  function arp(freqs, step = 0.09, type = 'triangle') { freqs.forEach((f, i) => setTimeout(() => beep(f, 0.16, type, 0.14), i * step * 1000)); }
+
   let wakeLock = null;
   async function keepAwake() {
     try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch {}
@@ -107,7 +161,7 @@
   }
 
   function rawSend(o) { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(o)); }
-  function send(o) { if (S.ws && S.ws.readyState === 1) rawSend(o); else S.pending.push(o); }
+  function send(o) { if (S.solo) return localSend(o); if (S.ws && S.ws.readyState === 1) rawSend(o); else S.pending.push(o); }
 
   function onDisconnect() {
     if (S.closing) return;
@@ -197,11 +251,22 @@
       ul.append(li);
     });
     renderPicker();
+    const solo = !!S.solo;
+    $('btnShare').classList.toggle('hidden', solo);
+    $('diffRow').classList.toggle('hidden', !solo);
+    $('lobbyEyebrow').textContent = solo ? 'Modo solo contra el Robot' : 'Código de sala';
+    if (solo) {
+      $('diffRow').textContent = '';
+      DIFFS.forEach((d, i) => {
+        const b = document.createElement('button'); b.textContent = d.n; b.className = i === S.solo.diff ? 'on' : '';
+        b.onclick = () => { S.solo.diff = i; renderLobby(); }; $('diffRow').append(b);
+      });
+    }
     const two = S.players.length === 2;
     const me = S.players[S.you];
-    $('lobbyMsg').textContent = two ? (me && me.ready ? 'Esperando que tu rival esté listo…' : '¡Ya están los dos! Pulsa listo.') : 'Esperando al otro jugador… compárteles el código.';
+    $('lobbyMsg').textContent = solo ? 'Elige dificultad y juegos. Funciona sin internet.' : two ? (me && me.ready ? 'Esperando que tu rival esté listo…' : '¡Ya están los dos! Pulsa listo.') : 'Esperando al otro jugador… compárteles el código.';
     $('btnReady').disabled = !two || (me && me.ready);
-    $('btnReady').textContent = S.phase === 'over' ? 'Revancha' : '¡Estoy listo!';
+    $('btnReady').textContent = S.phase === 'over' ? 'Revancha' : solo ? '¡Empezar!' : '¡Estoy listo!';
   }
 
   function renderPicker() {
@@ -252,7 +317,7 @@
   }
 
   function leaveLocal() {
-    stopRound();
+    stopRound(); stopSoloTimers(); S.solo = null;
     S.code = null; S.token = null; S.players = []; S.phase = 'home'; S.round = 0; S.scores = [0, 0];
     store.del(SESSION_KEY);
     $('net').classList.add('hidden');
@@ -271,7 +336,7 @@
     for (const n of html) overlay.append(n);
   }
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  window.DU = { el, beep, buzz, sleep };
+  window.DU = { el, beep, buzz, sleep, burst, float, confetti, arp };
   function hideOverlay() { overlay.classList.add('hidden'); overlay.textContent = ''; }
   function setWaitText(t) {
     if (overlay.classList.contains('hidden') || overlay.dataset.kind !== 'wait') return;
@@ -295,9 +360,11 @@
     stopRound();
     S.runningRound = m.round; S.round = m.round; S.totalRounds = m.totalRounds;
     const mine = m.round;
-    show('game'); renderHud(); keepAwake();
+    S.phase = 'playing';
+    show('game'); sizeFx(); renderHud(); keepAwake();
     const { GAMES, META } = window.DuelGames;
     const meta = META[m.game];
+    $('stage').classList.add('pat-' + meta.pat);
     gameEl.style.setProperty('--g1', meta.g[0]); gameEl.style.setProperty('--g2', meta.g[1]);
     overlay.dataset.kind = 'intro';
     const ico = el('div', 'ico'); ico.innerHTML = meta.icon;
@@ -354,12 +421,75 @@
       nodes.push(again, out);
       S.phase = 'over';
       renderLobby();
-      if (champ) { beep(988, 0.3, 'triangle'); buzz([60, 40, 60, 40, 120]); } else beep(220, 0.3, 'sawtooth');
+      if (champ) { arp([523, 659, 784, 1047, 1319], 0.11); buzz([60, 40, 60, 40, 120]); setTimeout(() => confetti(170), 250); } else arp([392, 330, 262, 196], 0.14, 'sawtooth');
     } else {
       nodes.push(el('p', 'sub', 'Siguiente ronda en un momento…'));
-      if (iWon) { beep(784, 0.15); buzz(60); } else if (!tie) { beep(196, 0.2, 'sawtooth'); buzz([40, 40, 40]); }
+      S.phase = 'between';
+      if (iWon) { arp([659, 880], 0.08); buzz(60); setTimeout(() => confetti(36), 150); } else if (!tie) { arp([262, 196], 0.12, 'sawtooth'); buzz([40, 40, 40]); }
     }
     setOverlay(nodes);
+  }
+
+  // ---------- modo solo (contra el Robot, funciona sin conexion) ----------
+  const DIFFS = [{ n: 'Fácil', f: 0.7 }, { n: 'Normal', f: 0.9 }, { n: 'Difícil', f: 1.1 }];
+  function botScore(game, f) {
+    const r = Math.random(); const j = 0.75 + r * 0.5; // variacion de +-25%
+    switch (game) {
+      case 'reaction': return Math.random() < 0.05 ? 0 : Math.max(1, Math.min(999, Math.round(1000 - (330 + (1 - f) * 320 + r * 110))));
+      case 'aim': return Math.round(10 * f * j);
+      case 'tap': return Math.round(36 * f * j);
+      case 'memory': return Math.round(5.5 * f * j) * 20 + Math.floor(r * 3);
+      case 'mole': return Math.min(22, Math.round(15 * f * j));
+      case 'gonogo': return Math.round(700 * f * j);
+      case 'stroop': return Math.round(12 * f * j);
+      case 'math': return Math.round(13 * f * j);
+      case 'timing': return Math.min(490, Math.round(340 * f * j));
+      case 'odd': return Math.round(11 * f * j);
+      case 'order': { const ms = Math.min(44000, Math.round((24000 / f) * j)); return 10000 + Math.round((45000 - ms) / 10); }
+      case 'dodge': return Math.min(2000, Math.round(1250 * f * j));
+      default: return 0;
+    }
+  }
+  function startSolo() {
+    stopSoloTimers();
+    S.name = currentName(); S.code = 'SOLO'; S.token = null; S.you = 0;
+    S.solo = { diff: 1, timer: null, bag: [], game: null, round: 0, total: 5, scores: [0, 0], got: true, last: null };
+    S.players = [{ name: S.name, score: 0, ready: false, connected: true }, { name: 'Robot', score: 0, ready: true, connected: true }];
+    S.games = Object.keys(window.DuelGames.META); S.round = 0; S.totalRounds = 5; S.scores = [0, 0]; S.history = []; S.phase = 'lobby';
+    renderLobby(); renderHud(); show('lobby');
+  }
+  function stopSoloTimers() { if (S.solo && S.solo.timer) clearTimeout(S.solo.timer); }
+  function localPick(L) {
+    if (!L.bag.length) {
+      L.bag = S.games.slice();
+      for (let i = L.bag.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [L.bag[i], L.bag[k]] = [L.bag[k], L.bag[i]]; }
+      if (L.bag[L.bag.length - 1] === L.game && L.bag.length > 1) L.bag.unshift(L.bag.pop());
+    }
+    return L.bag.pop();
+  }
+  function localStartRound() {
+    const L = S.solo; if (!L) return;
+    L.round += 1; L.got = false; L.game = localPick(L);
+    onMsg({ t: 'round', round: L.round, totalRounds: L.total, game: L.game, seed: 1 + Math.floor(Math.random() * 2147483646) });
+  }
+  function localSend(o) {
+    const L = S.solo; if (!L) return;
+    if (o.t === 'ready') {
+      if (S.phase === 'over') { L.round = 0; L.total = 5; L.scores = [0, 0]; L.bag = []; S.scores = [0, 0]; S.history = []; S.round = 0; S.totalRounds = 5; renderHud(); }
+      S.phase = 'lobby'; L.timer = setTimeout(localStartRound, 700);
+    } else if (o.t === 'result') {
+      if (o.round !== L.round || L.got) return;
+      L.got = true;
+      const mine = Math.min(Math.max(Math.round(o.value), 0), 100000); const bot = botScore(L.game, DIFFS[L.diff].f);
+      const winner = mine > bot ? 0 : bot > mine ? 1 : -1;
+      if (winner >= 0) L.scores[winner] += 1;
+      const over = L.round >= L.total && L.scores[0] !== L.scores[1];
+      if (L.round >= L.total && L.scores[0] === L.scores[1]) L.total += 1;
+      L.timer = setTimeout(() => {
+        onMsg({ t: 'roundEnd', round: L.round, game: L.game, values: [mine, bot], winner, scores: L.scores.slice(), over });
+        if (!over) L.timer = setTimeout(localStartRound, 4500);
+      }, 900);
+    }
   }
 
   // ---------- acciones de UI ----------
@@ -383,6 +513,7 @@
   }
 
   $('btnCreate').onclick = createRoom;
+  $('btnSolo').onclick = startSolo;
   $('btnJoin').onclick = () => {
     const c = $('code').value.trim().toUpperCase();
     if (c.length !== 4) { $('homeErr').textContent = 'El código tiene 4 letras.'; return; }

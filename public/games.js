@@ -3,7 +3,7 @@
    El valor que se entrega a done() siempre es entero y "mas alto = mejor".
    rand es un generador con semilla: ambos jugadores reciben exactamente la misma partida. */
 (() => {
-  const { el, beep, buzz, sleep } = window.DU;
+  const { el, beep, buzz, sleep, burst, float } = window.DU;
   const GAMES = {};
 
   const svg = (inner) => `<svg viewBox="0 0 24 24" aria-hidden="true">${inner}</svg>`;
@@ -35,6 +35,9 @@
       icon: svg('<circle cx="12" cy="18" r="3"/><rect x="5" y="2" width="5" height="5" rx="1"/><rect x="14" y="4" width="5" height="5" rx="1"/>'),
       fmt: (v) => `${(v / 100).toFixed(1)} s` },
   };
+
+  const PAT = { reaction: 'stripes', aim: 'rings', tap: 'dots', memory: 'checker', mole: 'dots', gonogo: 'grid', stroop: 'stripes', math: 'grid', timing: 'rings', odd: 'checker', order: 'grid', dodge: 'dots' };
+  for (const k of Object.keys(PAT)) META[k].pat = PAT[k];
 
   const loop = (fn) => {
     let id; let run = true;
@@ -90,12 +93,12 @@
       if (over) return;
       if (cur) cur.remove();
       const [x, y] = spots[i % spots.length]; i++;
-      const t = el('button', 'target in');
+      const t = el('button', 'target in'); t.style.setProperty('--life', LIFE + 'ms'); t.append(el('span', 'cue'));
       t.style.transform = `translate(${Math.round(x * W)}px, ${Math.round(y * H)}px)`;
       t.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         if (over || t !== cur) return;
-        hits++; cnt.textContent = String(hits); beep(600 + hits * 12, 0.05, 'triangle', 0.1); buzz(15);
+        hits++; cnt.textContent = String(hits); beep(600 + hits * 12, 0.05, 'triangle', 0.1); buzz(15); burst(e.clientX, e.clientY, '#ffd166', 16); float(e.clientX, e.clientY, '+1', '#ffd166');
         clearTimeout(tgtTimer); next();
       });
       cur = t; stage.append(t);
@@ -117,7 +120,7 @@
       if (over) return;
       btn.classList.add('down');
       if (!started) { started = true; timebar(stage, DURATION); end = setTimeout(() => { over = true; done(n); }, DURATION); }
-      n++; cnt.textContent = String(n); buzz(8);
+      n++; cnt.textContent = String(n); buzz(8); burst(e.clientX, e.clientY, '#ffd166', 5, 0.7);
     });
     const up = () => btn.classList.remove('down');
     btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('pointerleave', up);
@@ -152,7 +155,7 @@
       const pad = e.target.closest && e.target.closest('.pad');
       if (!pad || !accepting || over) return;
       const i = Number(pad.dataset.i);
-      pad.classList.add('on'); beep(FREQ[i], 0.18, 'sine', 0.2);
+      pad.classList.add('on'); beep(FREQ[i], 0.18, 'sine', 0.2); burst(e.clientX, e.clientY, ['#ff5d73', '#5aa9ff', '#7be495', '#ffd166'][i], 10);
       setTimeout(() => pad.classList.remove('on'), 140);
       if (i !== seq[pos]) { buzz(150); accepting = false; finish(); return; }
       pos++; partial = Math.min(19, pos);
@@ -188,7 +191,7 @@
       if (!node || over) return;
       const h = holes.find((x) => x.node === node);
       if (!h || !h.up) return;
-      h.up = false; hits++; cnt.textContent = String(hits); buzz(15); beep(500 + hits * 20, 0.05, 'triangle', 0.12);
+      h.up = false; hits++; cnt.textContent = String(hits); buzz(15); burst(e.clientX, e.clientY, '#c9935d', 14); float(e.clientX, e.clientY, '+1', '#fff'); beep(500 + hits * 20, 0.05, 'triangle', 0.12);
       node.classList.add('hit'); setTimeout(() => { node.classList.remove('up', 'hit'); }, 90);
     };
     stage.addEventListener('pointerdown', onDown);
@@ -221,13 +224,13 @@
         });
       }, s.gap);
     }
-    const onDown = () => {
+    const onDown = (e) => {
       if (over) return;
       if (!cur) { pts -= 30; show(); buzz(60); stage.classList.remove('flash-bad'); void stage.offsetWidth; stage.classList.add('flash-bad'); return; }
       if (cur.tapped) return;
       cur.tapped = true;
-      if (cur.go) { pts += Math.max(30, 100 - Math.floor((performance.now() - cur.t0) / 10)); beep(740, 0.05, 'triangle', 0.1); buzz(10); }
-      else { pts -= 80; buzz(120); stage.classList.remove('flash-bad'); void stage.offsetWidth; stage.classList.add('flash-bad'); }
+      if (cur.go) { pts += Math.max(30, 100 - Math.floor((performance.now() - cur.t0) / 10)); beep(740, 0.05, 'triangle', 0.1); buzz(10); burst(e.clientX, e.clientY, '#2ee59d', 14); }
+      else { pts -= 80; buzz(120); burst(e.clientX, e.clientY, '#ff5d73', 14); stage.classList.remove('flash-bad'); void stage.offsetWidth; stage.classList.add('flash-bad'); }
       show(); lamp.className = 'lamp';
     };
     stage.addEventListener('pointerdown', onDown);
@@ -254,8 +257,8 @@
       const b = e.target.closest && e.target.closest('.opt');
       if (!b || over) return;
       const q = qs[i % qs.length];
-      if (Number(b.dataset.i) === q.c) { score++; buzz(8); beep(660, 0.04, 'triangle', 0.1); }
-      else { score = Math.max(0, score - 1); buzz(80); shake(word); }
+      if (Number(b.dataset.i) === q.c) { score++; buzz(8); beep(660, 0.04, 'triangle', 0.1); burst(e.clientX, e.clientY, '#7be495', 12); float(e.clientX, e.clientY, '+1', '#7be495'); }
+      else { score = Math.max(0, score - 1); buzz(80); shake(word); burst(e.clientX, e.clientY, '#ff5d73', 10); }
       cnt.textContent = String(score); i++; render();
     };
     stage.addEventListener('pointerdown', onDown);
@@ -287,8 +290,8 @@
       const b = e.target.closest && e.target.closest('.opt');
       if (!b || over) return;
       const q = qs[i % qs.length];
-      if (Number(b.dataset.v) === q.ans) { score++; buzz(8); beep(660, 0.04, 'triangle', 0.1); }
-      else { score = Math.max(0, score - 1); buzz(80); shake(word); }
+      if (Number(b.dataset.v) === q.ans) { score++; buzz(8); beep(660, 0.04, 'triangle', 0.1); burst(e.clientX, e.clientY, '#7be495', 12); float(e.clientX, e.clientY, '+1', '#7be495'); }
+      else { score = Math.max(0, score - 1); buzz(80); shake(word); burst(e.clientX, e.clientY, '#ff5d73', 10); }
       cnt.textContent = String(score); i++; render();
     };
     stage.addEventListener('pointerdown', onDown);
@@ -330,7 +333,9 @@
       if (over || waiting) return;
       const d = Math.abs(pos(performance.now()) - centers[a]); const half = zoneW / 2;
       const pts = d <= half ? 60 + Math.round(40 * (1 - d / half)) : Math.max(0, Math.round(60 * (1 - (d - half) / 0.25)));
-      if (pts >= 60) { beep(880, 0.08, 'triangle', 0.12); buzz(20); } else buzz(40);
+      const mr = marker.getBoundingClientRect();
+      if (pts >= 60) { beep(880, 0.08, 'triangle', 0.12); buzz(20); burst(mr.left + 4, mr.top + 32, '#7be495', 22); } else buzz(40);
+      float(mr.left, mr.top - 10, `+${pts}`, pts >= 60 ? '#7be495' : '#ffffff');
       commit(pts);
     };
     stage.addEventListener('pointerdown', onDown);
@@ -361,7 +366,7 @@
     const onDown = (e) => {
       const t = e.target.closest && e.target.closest('.tile');
       if (!t || over || lock) return;
-      if (Number(t.dataset.k) === levels[L].at) { score++; L++; cnt.textContent = String(score); buzz(10); beep(500 + score * 25, 0.05, 'triangle', 0.1); build(); }
+      if (Number(t.dataset.k) === levels[L].at) { score++; L++; cnt.textContent = String(score); buzz(10); burst(e.clientX, e.clientY, '#fff', 12); beep(500 + score * 25, 0.05, 'triangle', 0.1); build(); }
       else { buzz(80); shake(grid); lock = true; setTimeout(() => { lock = false; }, 450); }
     };
     stage.addEventListener('pointerdown', onDown);
@@ -383,7 +388,7 @@
       const b = e.target.closest && e.target.closest('.num-t');
       if (!b || over) return;
       if (Number(b.dataset.n) === next) {
-        b.classList.add('ok'); next++; buzz(8); beep(400 + next * 30, 0.04, 'triangle', 0.1);
+        b.classList.add('ok'); next++; buzz(8); burst(e.clientX, e.clientY, '#7be495', 8); beep(400 + next * 30, 0.04, 'triangle', 0.1);
         if (next > 16) { const ms = Math.min(44999, Math.round(performance.now() - t0)); finish(10000 + Math.round((45000 - ms) / 10)); return; }
         nextEl.textContent = `Busca el ${next}`;
       } else { buzz(60); shake(b); }
@@ -409,7 +414,7 @@
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
     const R = Math.max(12, W * 0.03); const PY = H * 0.86;
-    let px = W / 2; let tx = W / 2; let over = false; let last = 0; let first = 0; let lastTxt = 0;
+    const trail = []; let px = W / 2; let tx = W / 2; let over = false; let last = 0; let first = 0; let lastTxt = 0;
     const setX = (e) => { const r = stage.getBoundingClientRect(); tx = Math.min(W - R, Math.max(R, e.clientX - r.left)); };
     stage.addEventListener('pointerdown', setX); stage.addEventListener('pointermove', setX);
     function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); ctx.fill(); }
@@ -428,8 +433,10 @@
         const bw = s.w * W; const bx = s.x * W - bw / 2; const bh = BH * H;
         rr(bx, y, bw, bh, 8);
         const nx = Math.max(bx, Math.min(px, bx + bw)); const ny = Math.max(y, Math.min(PY, y + bh));
-        if ((nx - px) ** 2 + (ny - PY) ** 2 < (R * 0.82) ** 2) { buzz(200); finish(Math.round(now / 10)); return; }
+        if ((nx - px) ** 2 + (ny - PY) ** 2 < (R * 0.82) ** 2) { buzz(200); const rc = stage.getBoundingClientRect(); burst(rc.left + px, rc.top + PY, '#38d6c9', 34, 1.5); finish(Math.round(now / 10)); return; }
       }
+      trail.push(px); if (trail.length > 10) trail.shift();
+      for (let k = 0; k < trail.length; k++) { ctx.fillStyle = `rgba(56,214,201,${(k / trail.length) * 0.25})`; ctx.beginPath(); ctx.arc(trail[k], PY + (trail.length - k) * 3, R * (0.5 + k / trail.length * 0.5), 0, 7); ctx.fill(); }
       ctx.fillStyle = '#38d6c933'; ctx.beginPath(); ctx.arc(px, PY, R * 1.6, 0, 7); ctx.fill();
       ctx.fillStyle = '#38d6c9'; ctx.beginPath(); ctx.arc(px, PY, R, 0, 7); ctx.fill();
       if (now - lastTxt > 100) { cnt.textContent = (now / 1000).toFixed(1) + ' s'; lastTxt = now; }

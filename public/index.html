@@ -30,6 +30,7 @@
       <input id="name" maxlength="14" autocomplete="nickname" placeholder="Ej: Vicho">
     </label>
     <button id="btnCreate" class="btn primary">Crear sala</button>
+    <button id="btnSolo" class="btn">Jugar solo contra el Robot</button>
     <div class="or">o entra a una sala</div>
     <div class="row">
       <input id="code" maxlength="4" inputmode="text" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO" aria-label="Código de sala">
@@ -41,10 +42,11 @@
 
   <!-- SALA -->
   <section id="lobby" class="screen">
-    <p class="eyebrow">Código de sala</p>
+    <p class="eyebrow" id="lobbyEyebrow">Código de sala</p>
     <div id="roomCode" class="roomcode">----</div>
     <button id="btnShare" class="btn">Compartir invitación</button>
     <ul id="plist" class="plist"></ul>
+    <div id="diffRow" class="chips pick hidden"></div>
     <p id="lobbyMsg" class="sub">Esperando al otro jugador…</p>
     <p class="eyebrow" id="pickTitle">Juegos de la partida</p>
     <div id="gamePick" class="chips pick"></div>
@@ -61,6 +63,7 @@
     </header>
     <div id="stage" class="stage"></div>
     <div id="overlay" class="overlay hidden"></div>
+    <canvas id="fx" class="fx" aria-hidden="true"></canvas>
   </section>
 </main>
 
