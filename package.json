@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tools/test.js && node tools/test-duels.js",
+    "test": "node tools/test.js && node tools/test-duels.js && node tools/test-security.js",
     "icons": "node tools/make-icons.js"
   },
   "engines": { "node": ">=20" },

@@ -40,7 +40,7 @@ server.listen(0, async () => {
     for (let r = 1; r <= 5; r++) {
       const ra = await a.next('round'); const rb = await b.next('round');
       assert.strictEqual(ra.seed, rb.seed); assert.ok(['math', 'tap'].includes(ra.game)); assert.strictEqual(ra.round, r);
-      a.send({ t: 'result', round: r, value: 500 + r });
+      a.send({ t: 'result', round: r, value: 10 + r });
       a.send({ t: 'result', round: r, value: 99999 }); // duplicado: debe ignorarse
       if (r === 3) { // Beto se cae y vuelve con su token antes de responder
         b.ws.close(); await new Promise((s) => setTimeout(s, 200));
@@ -50,9 +50,9 @@ server.listen(0, async () => {
         assert.strictEqual(snap.phase, 'playing'); assert.strictEqual(snap.submitted, false);
         Object.assign(b, b2); reconnected = true;
       }
-      b.send({ t: 'result', round: r, value: r % 2 ? 100 : 900 });
+      b.send({ t: 'result', round: r, value: r % 2 ? 1 : 20 });
       lastEnd = await a.next('roundEnd'); await b.next('roundEnd');
-      assert.strictEqual(lastEnd.values[0], 500 + r);
+      assert.strictEqual(lastEnd.values[0], 10 + r);
       if (lastEnd.over) break;
     }
     assert.ok(reconnected);
